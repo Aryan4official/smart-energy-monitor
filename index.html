@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-Powered IoT Smart Energy & Appliance Load Monitor — By Aryan (Class XII)</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <!-- Top Header Banner -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-300 font-bold text-lg">
+          ⚡
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-base sm:text-lg font-bold text-white tracking-tight">IoT + AI Smart Energy &amp; Appliance Load Monitor</h1>
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 font-medium">CBSE Class XII AI (843)</span>
+          </div>
+          <p class="text-xs text-slate-400">Submitted by <span class="text-slate-200 font-semibold">Aryan (Class XII)</span> &bull; Mentored by <span class="text-slate-200 font-semibold">Mrs. Randeep Kaur</span></p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex items-center gap-1.5 bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+        <button id="tabBtnDashboard" onclick="switchView('dashboard')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-teal-600 text-white">
+          Area &amp; Appliance Monitor
+        </button>
+        <button id="tabBtnSimulator" onclick="switchView('simulator')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition text-slate-300 hover:text-white">
+          AI Spike Simulator
+        </button>
+        <button id="tabBtnCode" onclick="switchView('code')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition text-slate-300 hover:text-white">
+          Python Code &amp; Model
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <!-- KPI Summary Row -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400 font-medium">Selected Area Daily Load</div>
+        <div id="kpiActualKwh" class="text-2xl font-bold text-white mt-1">57.37 kWh</div>
+        <div id="kpiExpectedSub" class="text-xs text-teal-400 mt-1">AI Expected Baseline: 44.10 kWh/day</div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400 font-medium">Unexplained Spike Waste</div>
+        <div id="kpiSpikeKwh" class="text-2xl font-bold text-amber-400 mt-1">+13.27 kWh/day</div>
+        <div id="kpiSpikeCost" class="text-xs text-rose-400 mt-1">Extra Bill Impact: ₹2,986 / month</div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400 font-medium">Top Spiking Appliance</div>
+        <div id="kpiTopCulprit" class="text-lg font-bold text-rose-300 mt-1 truncate">Water Geyser (2000W)</div>
+        <div id="kpiTopArea" class="text-xs text-slate-400 mt-1">Area: Bathroom (+4.14 kWh/day waste)</div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400 font-medium">Linear Regression Accuracy</div>
+        <div class="text-2xl font-bold text-emerald-400 mt-1">R² = 0.999</div>
+        <div class="text-xs text-slate-400 mt-1">RMSE: 0.016 kWh &bull; Tariff: ₹7.50/kWh</div>
+      </div>
+    </section>
+
+    <!-- VIEW 1: AREA & APPLIANCE DASHBOARD -->
+    <div id="viewDashboard" class="space-y-6">
+      <!-- Area Filter Bar -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-bold text-white">Select Household Area / Circuit Zone</h2>
+          <p class="text-xs text-slate-400">Filter live IoT current sensor telemetry and AI appliance breakdown by specific room or circuit zone</p>
+        </div>
+        <div id="areaFilterContainer" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white">Appliance Energy Breakdown (kWh/day)</h3>
+              <p class="text-xs text-slate-400">AI Expected Baseline vs. Unexplained Spike / Standby Waste</p>
+            </div>
+            <span id="chartAreaBadge" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-teal-300 font-medium">All Areas</span>
+          </div>
+          <div class="relative h-72">
+            <canvas id="applianceChart"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white">Area-Wise Share of Total Electricity Bill (₹/Month)</h3>
+              <p class="text-xs text-slate-400">Click any appliance row below to inspect its live IoT sensor parameters</p>
+            </div>
+          </div>
+          <div class="relative h-72">
+            <canvas id="areaPieChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Appliance Table & Live Sensor Inspector -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-4 overflow-hidden">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white">Appliance-Level IoT Current &amp; AI Consumption Table</h3>
+              <p class="text-xs text-slate-400">Click any appliance to inspect why it is normal or causing a bill spike</p>
+            </div>
+            <button id="toggleSpikesOnlyBtn" onclick="toggleSpikesFilter()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-medium transition">
+              Show Spiking Appliances Only: OFF
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400">
+                  <th class="py-2.5 px-2">Area / Zone</th>
+                  <th class="py-2.5 px-2">Appliance</th>
+                  <th class="py-2.5 px-2 text-right">Current (A)</th>
+                  <th class="py-2.5 px-2 text-right">Active / Standby</th>
+                  <th class="py-2.5 px-2 text-right">AI Pred (kWh)</th>
+                  <th class="py-2.5 px-2 text-right">Actual (kWh)</th>
+                  <th class="py-2.5 px-2 text-center">AI Status</th>
+                </tr>
+              </thead>
+              <tbody id="applianceTableBody" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Appliance Diagnostic Inspector Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold uppercase tracking-wider text-teal-400">Live IoT Sensor Diagnostic</span>
+              <span id="inspStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-semibold"></span>
+            </div>
+            <h3 id="inspTitle" class="text-lg font-bold text-white mt-2">Split AC (1.5 Ton)</h3>
+            <p id="inspArea" class="text-xs text-slate-400">Zone: Bedroom Circuit</p>
+
+            <div class="mt-4 space-y-2.5 text-xs bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Measured Current Intensity:</span>
+                <span id="inspCurrent" class="font-semibold text-white">6.8 A (at 230V)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Active Usage Duration:</span>
+                <span id="inspActive" class="font-semibold text-white">7.5 hrs / day</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Unattended Standby Duration:</span>
+                <span id="inspStandby" class="font-semibold text-amber-300">5.0 hrs / day</span>
+              </div>
+              <div class="border-t border-slate-800 pt-2 flex justify-between">
+                <span class="text-slate-400">AI Predicted Baseline:</span>
+                <span id="inspPredKwh" class="font-semibold text-teal-300">11.94 kWh / day</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Actual Metered Load:</span>
+                <span id="inspActualKwh" class="font-bold text-white">14.80 kWh / day</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Unexplained Spike Waste:</span>
+                <span id="inspWasteKwh" class="font-bold text-rose-400">+2.86 kWh / day (₹644/mo)</span>
+              </div>
+            </div>
+
+            <div class="mt-4 p-3 rounded-xl bg-teal-950/40 border border-teal-800/50">
+              <div class="text-xs font-semibold text-teal-300 mb-1">AI Root-Cause Diagnosis:</div>
+              <p id="inspDiagnosis" class="text-xs text-slate-300 leading-relaxed"></p>
+            </div>
+          </div>
+
+          <button id="loadIntoSimBtn" onclick="loadSelectedIntoSimulator()" class="mt-4 w-full py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition">
+            Test This Appliance in AI Simulator &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: INTERACTIVE AI SPIKE SIMULATOR -->
+    <div id="viewSimulator" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div>
+            <h2 class="text-base font-bold text-white">Interactive Area &amp; Appliance Energy Simulator</h2>
+            <p class="text-xs text-slate-400">Adjust IoT sensor inputs below to see how the Class 12 Multiple Linear Regression model predicts kWh consumption and detects abnormal bill spikes in real time.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="simAreaInput" class="block text-xs text-slate-400 mb-1">Household Area / Zone</label>
+              <select id="simAreaInput" onchange="updateSimulator()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                <option value="Bedroom">Bedroom</option>
+                <option value="Bathroom">Bathroom</option>
+                <option value="Kitchen">Kitchen</option>
+                <option value="Living Room">Living Room</option>
+                <option value="Home Office">Home Office</option>
+                <option value="Utility Area">Utility Area</option>
+              </select>
+            </div>
+            <div>
+              <label for="simApplianceInput" class="block text-xs text-slate-400 mb-1">Appliance Name</label>
+              <input id="simApplianceInput" type="text" value="Split AC (1.5 Ton)" oninput="updateSimulator()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white" />
+            </div>
+          </div>
+
+          <div class="space-y-3 pt-2">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <label for="simCurrentSlider" class="text-slate-300">IoT Measured Current Intensity (<span class="text-teal-300">Current_A</span>)</label>
+                <span id="simCurrentVal" class="font-bold text-teal-300">6.8 A</span>
+              </div>
+              <input id="simCurrentSlider" type="range" min="0.5" max="15.0" step="0.1" value="6.8" oninput="updateSimulator()" class="w-full accent-teal-500" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <label for="simActiveSlider" class="text-slate-300">Daily Active Usage Duration (<span class="text-teal-300">Active_Hours</span>)</label>
+                <span id="simActiveVal" class="font-bold text-teal-300">7.5 hrs</span>
+              </div>
+              <input id="simActiveSlider" type="range" min="0.5" max="20.0" step="0.5" value="7.5" oninput="updateSimulator()" class="w-full accent-teal-500" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <label for="simStandbySlider" class="text-slate-300">Unattended Standby Hours While Out/Asleep (<span class="text-amber-300">Standby_Hours</span>)</label>
+                <span id="simStandbyVal" class="font-bold text-amber-300">5.0 hrs</span>
+              </div>
+              <input id="simStandbySlider" type="range" min="0.0" max="18.0" step="0.5" value="5.0" oninput="updateSimulator()" class="w-full accent-amber-500" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <label for="simMeasuredSlider" class="text-slate-300">Actual Metered Consumption (<span class="text-rose-300">Measured_kWh</span>)</label>
+                <span id="simMeasuredVal" class="font-bold text-rose-300">14.80 kWh</span>
+              </div>
+              <input id="simMeasuredSlider" type="range" min="0.5" max="30.0" step="0.1" value="14.8" oninput="updateSimulator()" class="w-full accent-rose-500" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Prediction Output Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-teal-400">Real-Time AI Model Output</div>
+            <h3 id="simOutputHeader" class="text-lg font-bold text-white mt-1">Bedroom &bull; Split AC (1.5 Ton)</h3>
+
+            <div class="grid grid-cols-2 gap-3 mt-4">
+              <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+                <div class="text-xs text-slate-400">AI Expected Baseline</div>
+                <div id="simPredDisplay" class="text-xl font-bold text-teal-300 mt-1">11.94 kWh/day</div>
+                <div id="simPredMonthly" class="text-xs text-slate-500 mt-0.5">₹2,687 / month</div>
+              </div>
+              <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+                <div class="text-xs text-slate-400">Actual Metered Load</div>
+                <div id="simActualDisplay" class="text-xl font-bold text-white mt-1">14.80 kWh/day</div>
+                <div id="simActualMonthly" class="text-xs text-slate-400 mt-0.5">₹3,330 / month</div>
+              </div>
+            </div>
+
+            <div id="simAlertBox" class="mt-4 p-4 rounded-xl border">
+              <div id="simAlertTitle" class="text-sm font-bold"></div>
+              <p id="simAlertDesc" class="text-xs mt-1 leading-relaxed"></p>
+            </div>
+          </div>
+
+          <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 text-xs font-mono text-slate-300">
+            <div class="text-slate-400 font-sans font-semibold mb-1">Linear Regression Equation Executed:</div>
+            <div id="simEquationText">Predicted_kWh = 0.0021 + 0.2318*(6.8*7.5) + 0.0008*(6.8) + 0.0283*(5.0) = 11.94 kWh</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: PYTHON CODE & MODEL REFERENCE -->
+    <div id="viewCode" class="hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 class="text-base font-bold text-white">Working Python Implementation (CBSE Class XII AI - 843)</h2>
+            <p class="text-xs text-slate-400">Self-contained script that predicts electrical consumption by Area &amp; Appliance and flags unexplained bill spikes</p>
+          </div>
+          <button id="copyCodeBtn" onclick="copyPythonCode()" class="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition">
+            Copy Python Code
+          </button>
+        </div>
+        <pre id="pythonCodeBlock" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs font-mono text-teal-200 overflow-x-auto leading-relaxed">import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+
+# Area &amp; Appliance-wise IoT Electrical Load Dataset
+data = [
+    ("Bedroom",     "Split AC (1.5 Ton)",        6.8, 7.5,  5.0, 11.95, 14.80),
+    ("Bathroom",    "Water Geyser (2000W)",      8.7, 2.5,  8.5,  5.25,  9.40),
+    ("Kitchen",     "Double-Door Refrigerator",  1.4, 9.0, 15.0,  3.35,  3.45),
+    ("Kitchen",     "Microwave Oven (1200W)",    5.2, 0.8,  2.0,  1.02,  1.05),
+    ("Living Room", "Smart LED TV &amp; Soundbar",   0.9, 5.5, 10.0,  1.38,  1.42),
+    ("Living Room", "Tower Air Cooler",          2.2, 6.0,  4.0,  3.15,  3.20),
+    ("Home Office", "Desktop PC &amp; Dual Monitor", 1.8, 6.5,  9.5,  2.95,  4.65),
+    ("Bedroom",     "Ceiling Fan &amp; LED Lights",  0.5, 10.0, 2.0,  1.18,  1.20),
+    ("Utility Area","Washing Machine (Front)",   4.5, 1.5,  3.0,  1.65,  1.70),
+    ("Utility Area","Submersible Water Pump",    6.5, 1.2,  1.0,  1.82,  3.60),
+    ("Bedroom",     "Room Heater (Oil Fin)",     8.2, 4.0,  6.0,  7.75, 10.20),
+    ("Kitchen",     "Induction Cooktop",         7.5, 1.5,  2.5,  2.65,  2.70),
+]
+
+df = pd.DataFrame(data, columns=[
+    "Area", "Appliance", "Current_A", "Active_Hours",
+    "Standby_Hours", "Expected_kWh", "Measured_kWh"
+])
+df["Amp_Hours"] = df["Current_A"] * df["Active_Hours"]
+
+X = df[["Amp_Hours", "Current_A", "Standby_Hours"]]
+y = df["Expected_kWh"]
+
+model = LinearRegression()
+model.fit(X, y)
+df["Predicted_kWh"] = model.predict(X).round(2)
+df["Spike_Waste_kWh"] = (df["Measured_kWh"] - df["Predicted_kWh"]).round(2)
+
+print("R2 Score:", round(r2_score(y, df["Predicted_kWh"]), 4))
+print(df[["Area", "Appliance", "Current_A", "Predicted_kWh", "Measured_kWh", "Spike_Waste_kWh"]])</pre>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const TARIFF = 7.5;
+    const APPLIANCES = [
+      { id: 1, area: "Bedroom", appliance: "Split AC (1.5 Ton)", currentA: 6.8, activeH: 7.5, standbyH: 5.0, predKwh: 11.94, actualKwh: 14.80, reason: "Compressor drawing extra power for 2.86 kWh/day due to clogged air filter and 5 hrs of stabilizer standby load while room is unoccupied." },
+      { id: 2, area: "Bathroom", appliance: "Water Geyser (2000W)", currentA: 8.7, activeH: 2.5, standbyH: 8.5, predKwh: 5.26, actualKwh: 9.40, reason: "Geyser switch left ON for 8.5 hrs after morning use; thermostat repeatedly reheated water all day while family was out (+4.14 kWh/day spike)." },
+      { id: 3, area: "Kitchen", appliance: "Double-Door Refrigerator", currentA: 1.4, activeH: 9.0, standbyH: 15.0, predKwh: 3.32, actualKwh: 3.45, reason: "Normal cyclic compressor operation throughout 24 hours. Measured consumption matches AI baseline within 0.13 kWh." },
+      { id: 4, area: "Kitchen", appliance: "Microwave Oven (1200W)", currentA: 5.2, activeH: 0.8, standbyH: 2.0, predKwh: 1.00, actualKwh: 1.05, reason: "Normal cooking usage; minimal digital clock standby draw." },
+      { id: 5, area: "Living Room", appliance: "Smart LED TV & Soundbar", currentA: 0.9, activeH: 5.5, standbyH: 10.0, predKwh: 1.41, actualKwh: 1.42, reason: "Normal evening entertainment load; consumption aligns with AI baseline prediction." },
+      { id: 6, area: "Living Room", appliance: "Tower Air Cooler", currentA: 2.2, activeH: 6.0, standbyH: 4.0, predKwh: 3.15, actualKwh: 3.20, reason: "Normal daytime cooling load in Living Room zone." },
+      { id: 7, area: "Home Office", appliance: "Desktop PC & Dual Monitor", currentA: 1.8, activeH: 6.5, standbyH: 9.5, predKwh: 2.96, actualKwh: 4.65, reason: "PC sleep mode disabled; system remained active in high-power state for 9.5 unattended hours (+1.69 kWh/day waste)." },
+      { id: 8, area: "Bedroom", appliance: "Ceiling Fan & LED Lights", currentA: 0.5, activeH: 10.0, standbyH: 2.0, predKwh: 1.19, actualKwh: 1.20, reason: "Efficient BLDC fan and LED lighting operating within expected parameters." },
+      { id: 9, area: "Utility Area", appliance: "Washing Machine (Front)", currentA: 4.5, activeH: 1.5, standbyH: 3.0, predKwh: 1.63, actualKwh: 1.70, reason: "Single daily wash cycle; normal load profile." },
+      { id: 10, area: "Utility Area", appliance: "Submersible Water Pump", currentA: 6.5, activeH: 1.2, standbyH: 1.0, predKwh: 1.82, actualKwh: 3.60, reason: "Overhead tank float valve leak caused pump to run nearly double its normal daily duration (+1.78 kWh/day spike)." },
+      { id: 11, area: "Bedroom", appliance: "Room Heater (Oil Fin)", currentA: 8.2, activeH: 4.0, standbyH: 6.0, predKwh: 7.76, actualKwh: 10.20, reason: "High current intensity (8.2 A) combined with 6 hrs of unattended thermostat cycling (+2.44 kWh/day spike)." },
+      { id: 12, area: "Kitchen", appliance: "Induction Cooktop", currentA: 7.5, activeH: 1.5, standbyH: 2.5, predKwh: 2.66, actualKwh: 2.70, reason: "Normal meal preparation usage; matches predicted kWh." }
+    ];
+
+    let selectedArea = "All Areas";
+    let spikesOnly = false;
+    let selectedApplianceId = 1;
+    let barChartInstance = null;
+    let pieChartInstance = null;
+
+    function predictKwh(currentA, activeH, standbyH) {
+      const pred = 0.0021 + 0.2318 * (currentA * activeH) + 0.0008 * currentA + 0.0283 * standbyH;
+      return Math.max(0.1, Number(pred.toFixed(2)));
+    }
+
+    function switchView(viewName) {
+      const views = {
+        dashboard: document.getElementById("viewDashboard"),
+        simulator: document.getElementById("viewSimulator"),
+        code: document.getElementById("viewCode")
+      };
+      const btns = {
+        dashboard: document.getElementById("tabBtnDashboard"),
+        simulator: document.getElementById("tabBtnSimulator"),
+        code: document.getElementById("tabBtnCode")
+      };
+      Object.keys(views).forEach(k => {
+        if (k === viewName) {
+          views[k].classList.remove("hidden");
+          btns[k].className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-teal-600 text-white";
+        } else {
+          views[k].classList.add("hidden");
+          btns[k].className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition text-slate-300 hover:text-white";
+        }
+      });
+    }
+
+    function renderAreaFilter() {
+      const areas = ["All Areas", "Bedroom", "Bathroom", "Kitchen", "Living Room", "Home Office", "Utility Area"];
+      const container = document.getElementById("areaFilterContainer");
+      container.innerHTML = "";
+      areas.forEach(area => {
+        const btn = document.createElement("button");
+        const active = area === selectedArea;
+        btn.className = active
+          ? "px-3 py-1.5 rounded-xl text-xs font-semibold bg-teal-600 text-white shadow"
+          : "px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700";
+        btn.textContent = area;
+        btn.addEventListener("click", () => {
+          selectedArea = area;
+          renderAll();
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function getFilteredAppliances() {
+      return APPLIANCES.filter(item => {
+        const matchArea = selectedArea === "All Areas" || item.area === selectedArea;
+        const waste = item.actualKwh - item.predKwh;
+        const matchSpike = !spikesOnly || waste > 0.75;
+        return matchArea && matchSpike;
+      });
+    }
+
+    function updateKPIs(items) {
+      const list = items.length ? items : APPLIANCES;
+      const totalActual = list.reduce((s, i) => s + i.actualKwh, 0);
+      const totalPred = list.reduce((s, i) => s + i.predKwh, 0);
+      const totalSpike = Math.max(0, totalActual - totalPred);
+      const monthlySpikeRs = Math.round(totalSpike * 30 * TARIFF);
+
+      let topItem = list[0];
+      list.forEach(i => {
+        if ((i.actualKwh - i.predKwh) > (topItem.actualKwh - topItem.predKwh)) {
+          topItem = i;
+        }
+      });
+      const topWaste = Math.max(0, topItem.actualKwh - topItem.predKwh).toFixed(2);
+
+      document.getElementById("kpiActualKwh").textContent = totalActual.toFixed(2) + " kWh";
+      document.getElementById("kpiExpectedSub").textContent = "AI Expected Baseline: " + totalPred.toFixed(2) + " kWh/day";
+      document.getElementById("kpiSpikeKwh").textContent = "+" + totalSpike.toFixed(2) + " kWh/day";
+      document.getElementById("kpiSpikeCost").textContent = "Extra Bill Impact: ₹" + monthlySpikeRs.toLocaleString("en-IN") + " / month";
+      document.getElementById("kpiTopCulprit").textContent = topItem.appliance;
+      document.getElementById("kpiTopArea").textContent = "Area: " + topItem.area + " (+" + topWaste + " kWh/day waste)";
+      document.getElementById("chartAreaBadge").textContent = selectedArea;
+    }
+
+    function renderTable(items) {
+      const tbody = document.getElementById("applianceTableBody");
+      tbody.innerHTML = "";
+      items.forEach(item => {
+        const waste = Number((item.actualKwh - item.predKwh).toFixed(2));
+        const isSpike = waste > 0.75;
+        const tr = document.createElement("tr");
+        const isSelected = item.id === selectedApplianceId;
+        tr.className = "cursor-pointer transition " + (isSelected ? "bg-teal-950/60" : "hover:bg-slate-800/60");
+        tr.addEventListener("click", () => {
+          selectedApplianceId = item.id;
+          renderTable(items);
+          renderInspector();
+        });
+
+        tr.innerHTML = `
+          <td class="py-2.5 px-2 font-medium text-slate-200">${item.area}</td>
+          <td class="py-2.5 px-2 font-semibold text-white">${item.appliance}</td>
+          <td class="py-2.5 px-2 text-right text-slate-300">${item.currentA.toFixed(1)} A</td>
+          <td class="py-2.5 px-2 text-right text-slate-400">${item.activeH}h / ${item.standbyH}h</td>
+          <td class="py-2.5 px-2 text-right text-teal-300 font-medium">${item.predKwh.toFixed(2)}</td>
+          <td class="py-2.5 px-2 text-right text-white font-bold">${item.actualKwh.toFixed(2)}</td>
+          <td class="py-2.5 px-2 text-center">
+            ${isSpike
+              ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">SPIKE +${waste} kWh</span>`
+              : `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">NORMAL</span>`
+            }
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderInspector() {
+      const item = APPLIANCES.find(a => a.id === selectedApplianceId) || APPLIANCES[0];
+      const waste = Number((item.actualKwh - item.predKwh).toFixed(2));
+      const isSpike = waste > 0.75;
+      const extraRs = Math.round(Math.max(0, waste) * 30 * TARIFF);
+
+      document.getElementById("inspTitle").textContent = item.appliance;
+      document.getElementById("inspArea").textContent = "Zone: " + item.area + " Circuit";
+      document.getElementById("inspCurrent").textContent = item.currentA.toFixed(1) + " A (at 230V)";
+      document.getElementById("inspActive").textContent = item.activeH + " hrs / day";
+      document.getElementById("inspStandby").textContent = item.standbyH + " hrs / day";
+      document.getElementById("inspPredKwh").textContent = item.predKwh.toFixed(2) + " kWh / day";
+      document.getElementById("inspActualKwh").textContent = item.actualKwh.toFixed(2) + " kWh / day";
+      document.getElementById("inspWasteKwh").textContent = (waste > 0 ? "+" : "") + waste.toFixed(2) + " kWh / day (₹" + extraRs + "/mo)";
+      document.getElementById("inspDiagnosis").textContent = item.reason;
+
+      const badge = document.getElementById("inspStatusBadge");
+      if (isSpike) {
+        badge.textContent = "SPIKE DETECTED";
+        badge.className = "text-xs px-2.5 py-0.5 rounded-full font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40";
+      } else {
+        badge.textContent = "NORMAL LOAD";
+        badge.className = "text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+      }
+    }
+
+    function renderCharts(items) {
+      const list = items.length ? items : APPLIANCES;
+      const labels = list.map(i => i.appliance.split(" (")[0]);
+      const expectedData = list.map(i => i.predKwh);
+      const spikeData = list.map(i => Math.max(0, Number((i.actualKwh - i.predKwh).toFixed(2))));
+
+      const ctxBar = document.getElementById("applianceChart").getContext("2d");
+      if (barChartInstance) barChartInstance.destroy();
+      barChartInstance = new Chart(ctxBar, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "AI Expected Baseline (kWh)",
+              data: expectedData,
+              backgroundColor: "#0d9488",
+              borderRadius: 4
+            },
+            {
+              label: "Unexplained Spike Waste (kWh)",
+              data: spikeData,
+              backgroundColor: "#f97316",
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: "#cbd5e1", font: { size: 11 } } }
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { display: false } },
+            y: { stacked: true, ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#1e293b" } }
+          }
+        }
+      });
+
+      // Area totals for Doughnut Chart
+      const areaMap = {};
+      APPLIANCES.forEach(i => {
+        areaMap[i.area] = (areaMap[i.area] || 0) + i.actualKwh * 30 * TARIFF;
+      });
+      const areaNames = Object.keys(areaMap);
+      const areaCosts = areaNames.map(a => Math.round(areaMap[a]));
+
+      const ctxPie = document.getElementById("areaPieChart").getContext("2d");
+      if (pieChartInstance) pieChartInstance.destroy();
+      pieChartInstance = new Chart(ctxPie, {
+        type: "doughnut",
+        data: {
+          labels: areaNames.map((a, idx) => `${a} (₹${areaCosts[idx]})`),
+          datasets: [{
+            data: areaCosts,
+            backgroundColor: ["#0d9488", "#f97316", "#3b82f6", "#a855f7", "#eab308", "#ec4899"],
+            borderColor: "#0f172a",
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "right", labels: { color: "#cbd5e1", font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    function toggleSpikesFilter() {
+      spikesOnly = !spikesOnly;
+      const btn = document.getElementById("toggleSpikesOnlyBtn");
+      btn.textContent = "Show Spiking Appliances Only: " + (spikesOnly ? "ON" : "OFF");
+      btn.className = spikesOnly
+        ? "text-xs px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-200 border border-amber-400 font-semibold transition"
+        : "text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-medium transition";
+      renderAll();
+    }
+
+    function loadSelectedIntoSimulator() {
+      const item = APPLIANCES.find(a => a.id === selectedApplianceId) || APPLIANCES[0];
+      document.getElementById("simAreaInput").value = item.area;
+      document.getElementById("simApplianceInput").value = item.appliance;
+      document.getElementById("simCurrentSlider").value = item.currentA;
+      document.getElementById("simActiveSlider").value = item.activeH;
+      document.getElementById("simStandbySlider").value = item.standbyH;
+      document.getElementById("simMeasuredSlider").value = item.actualKwh;
+      updateSimulator();
+      switchView("simulator");
+    }
+
+    function updateSimulator() {
+      const area = document.getElementById("simAreaInput").value;
+      const app = document.getElementById("simApplianceInput").value || "Custom Appliance";
+      const currA = parseFloat(document.getElementById("simCurrentSlider").value);
+      const activeH = parseFloat(document.getElementById("simActiveSlider").value);
+      const standbyH = parseFloat(document.getElementById("simStandbySlider").value);
+      const measuredKwh = parseFloat(document.getElementById("simMeasuredSlider").value);
+
+      document.getElementById("simCurrentVal").textContent = currA.toFixed(1) + " A";
+      document.getElementById("simActiveVal").textContent = activeH.toFixed(1) + " hrs";
+      document.getElementById("simStandbyVal").textContent = standbyH.toFixed(1) + " hrs";
+      document.getElementById("simMeasuredVal").textContent = measuredKwh.toFixed(2) + " kWh";
+
+      const predKwh = predictKwh(currA, activeH, standbyH);
+      const diff = Number((measuredKwh - predKwh).toFixed(2));
+      const predMonthly = Math.round(predKwh * 30 * TARIFF);
+      const actualMonthly = Math.round(measuredKwh * 30 * TARIFF);
+      const wasteMonthly = Math.round(Math.max(0, diff) * 30 * TARIFF);
+
+      document.getElementById("simOutputHeader").textContent = area + " • " + app;
+      document.getElementById("simPredDisplay").textContent = predKwh.toFixed(2) + " kWh/day";
+      document.getElementById("simPredMonthly").textContent = "₹" + predMonthly.toLocaleString("en-IN") + " / month";
+      document.getElementById("simActualDisplay").textContent = measuredKwh.toFixed(2) + " kWh/day";
+      document.getElementById("simActualMonthly").textContent = "₹" + actualMonthly.toLocaleString("en-IN") + " / month";
+
+      const alertBox = document.getElementById("simAlertBox");
+      const alertTitle = document.getElementById("simAlertTitle");
+      const alertDesc = document.getElementById("simAlertDesc");
+
+      if (diff > 0.75) {
+        alertBox.className = "mt-4 p-4 rounded-xl border bg-rose-950/50 border-rose-500/40 text-rose-200";
+        alertTitle.textContent = "⚠️ Unexplained Consumption Spike Detected (+" + diff.toFixed(2) + " kWh/day)";
+        alertDesc.textContent = `In ${area}, ${app} is consuming ${diff.toFixed(2)} kWh/day above the AI-predicted baseline (${predKwh.toFixed(2)} kWh/day). This adds approximately ₹${wasteMonthly.toLocaleString("en-IN")}/month to your electricity bill. Check unattended standby hours (${standbyH} hrs) or thermostat/compressor health.`;
+      } else {
+        alertBox.className = "mt-4 p-4 rounded-xl border bg-emerald-950/50 border-emerald-500/40 text-emerald-200";
+        alertTitle.textContent = "✓ Normal Electrical Load Profile";
+        alertDesc.textContent = `In ${area}, ${app} is operating within normal AI baseline expectations (${predKwh.toFixed(2)} kWh/day predicted vs. ${measuredKwh.toFixed(2)} kWh/day metered). No abnormal bill spike detected.`;
+      }
+
+      document.getElementById("simEquationText").textContent =
+        `Predicted_kWh = 0.0021 + 0.2318*(${currA.toFixed(1)}×${activeH.toFixed(1)}) + 0.0008*(${currA.toFixed(1)}) + 0.0283*(${standbyH.toFixed(1)}) = ${predKwh.toFixed(2)} kWh`;
+    }
+
+    function copyPythonCode() {
+      const code = document.getElementById("pythonCodeBlock").innerText;
+      const btn = document.getElementById("copyCodeBtn");
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        btn.textContent = "✓ Copied to Clipboard!";
+        setTimeout(() => { btn.textContent = "Copy Python Code"; }, 2000);
+      } catch (e) {
+        btn.textContent = "Copy Ready";
+      }
+    }
+
+    function renderAll() {
+      renderAreaFilter();
+      const filtered = getFilteredAppliances();
+      updateKPIs(filtered);
+      renderTable(filtered);
+      renderInspector();
+      renderCharts(filtered);
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderAll();
+      updateSimulator();
+    });
+  </script>
+</body>
+</html>
